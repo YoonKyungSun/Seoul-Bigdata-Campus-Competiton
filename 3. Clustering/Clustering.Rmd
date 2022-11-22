@@ -1,0 +1,388 @@
+---
+title: "Clustering"
+author: "Jongseok Yu"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### 필요한 library
+```{r}
+library(tidyverse)
+library(data.table)
+library(magrittr)
+```
+
+# 필요한 data load
+```{r}
+Sys.getlocale()
+Sys.setlocale("LC_ALL","C") # 강제 언어 삭제
+data <- read.csv("C:\\Users\\yjs49\\Desktop\\ecar_EDA\\EDA\\final dataset\\final_data.csv",header = T, encoding = "UTF-8")
+final_data <- read.csv("C:\\Users\\yjs49\\Desktop\\ecar_EDA\\final\\final_addinfra.csv",header = T, encoding = "cp949")
+Sys.setlocale("LC_ALL","Korean") # 언어 다시 한글로
+eco <- read.csv("C:\\Users\\yjs49\\Desktop\\ecar_EDA\\imputation\\생활인구_2021.csv")
+
+oil_data <- final_data %>%
+  subset(select = c(행정동, 주유소개수, 주유소접근성))
+data <- left_join(data, oil_data, by="행정동")
+
+write.csv(data, "real_final_data.csv", fileEncoding = "cp949")
+```
+
+
+```{r}
+colnames(eco)
+```
+
+### 데이터 열이름 전처리 및 준비
+```{r}
+data %<>%
+  rename("행정동코드" = "X..........", "시군구명" = "X........", "행정동" = "X......", "인구밀도" = "X.........1",
+         "거주인구" = "X.........2", "생활인구" = "X.........3", "면적" = "X....", "주거성격" = "X.........4",
+         "거주비율" = "X.........5", "평균총소득" = "X...........1", "충전소개수" = "X...........2",
+         "전기차개수" = "X...........3", "충전소인프라" = "X............", "전체차량개수" = "X.............1",
+         "전기차보급률" = "X.............2", "충전소접근성" = "X.............3", "전기사용량" = "X...........4",
+         "가스사용량"= "X...........5", "온실가스비율" = "X.............4")
+```
+
+```{r}
+data %<>%
+  subset(select = -c(생활인구))
+
+data <- left_join(data, eco, by="행정동")
+```
+
+
+```{r}
+data %<>%
+  rename("행정동코드" = "행정동코드.x") %>%
+  subset(select = -c(행정동코드.y, 주거성격)) %>%
+  mutate("생활인구성격" = 생활인구 / 거주인구)
+  
+```
+
+
+```{r}
+colnames(data)
+```
+
+### 클러스터링 library 불러오기
+```{r}
+library(cluster)
+library(mclust)
+library(ClusterR)
+library(fpc)
+library(NbClust)
+library(factoextra)
+```
+
+### 데이터 점검
+```{r}
+data %>% str()
+data %>% glimpse()
+data %>% summary()
+```
+
+### 전기차관심도 column = 전기차비율 표준화 지수 * 온실가스 감축량 지수
+```{r}
+### 전기차비율 표준화 (0~1)
+data_전기차보급률_min <- min(data$전기차보급률)
+data_전기차보급률_max <- max(data$전기차보급률)
+data$전기차비율_s <- scale(data$전기차보급률, center=data_전기차보급률_min, scale= data_전기차보급률_max - data_전기차보급률_min)
+
+### 온실가스 감축량 지수 (0~1)
+data_온실가스비율_min <- min(data$온실가스비율)
+data_온실가스비율_max <- max(data$온실가스비율)
+data$온실가스비율_s <- scale(data$온실가스비율, center=data_온실가스비율_min, scale= data_온실가스비율_max - data_온실가스비율_min)
+
+for (i in 1:nrow(data)){
+  data$전기차관심도_s[i] <- (data$전기차비율_s[i] + data$온실가스비율_s[i])/2
+}
+```
+
+
+### 차원 축소 진행 : PCA
+```{r}
+data_num <- data[, -c(1:3)]
+
+pca_data <- prcomp(data_num, center = TRUE, scale = TRUE) ;pca_data
+```
+
+
+```{r}
+plot(pca_data, type = "l")
+```
+
+
+```{r}
+summary(pca_data)
+```
+
+```{r}
+biplot(pca_data, main="Biplot") #PCA를 통한 차원 축소가 현재 문제에서는 효과적이지 않음을 확인
+```
+
+### 설명력을 높이기 위한 변수 추출 (2개) ## 생활인구, 전기사용량 기준
+```{r}
+data_clus <- data %>% select(생활인구, 전기사용량)
+
+data_clus <- data_clus %>% scale() %>% as.data.frame() ;data_clus
+
+Cluster_nm <- NbClust(data_clus, distance = "euclidean", min.nc = 3, max.nc = 10, method = "average")
+Cluster_nm
+```
+
+```{r}
+Cluster_nm$Best.nc
+```
+
+
+```{r}
+n.cluster <- Cluster_nm$Best.nc[1,] %>% 
+  table() %>% 
+  sort(decreasing = T) ;n.cluster
+```
+
+# 최적 군집 개수 시각화 barplot
+```{r}
+par(mfrow=c(1,1))
+col1=c("lightblue", "grey","grey","grey", "grey","grey","grey","grey","grey")
+
+myclust <- barplot(sort(n.cluster,decreasing = T), xlab=" Number of Culster", ylab="Number of supporting Index",
+        col=col1, main="Recommended Number of Cluster through NbClust")
+label1 <- paste(sort(n.cluster,decreasing = T),"개",sep='')
+text(myclust,sort(n.cluster,decreasing = T)-0.3, labels = label1)  #위치 조절
+abline(h=0)  #x축
+```
+
+
+```{r}
+library(gridExtra)
+WSS <- data_clus %>%
+  fviz_nbclust(FUNcluster = kmeans, method = "wss", linecolor = "aquamarine4")
+
+SIL <- data_clus %>%
+  fviz_nbclust(FUNcluster = kmeans, method = "silhouette", linecolor = "aquamarine4", diss = dist(data_clus, method = "euclidean"))
+
+grid.arrange(WSS, SIL, ncol = 2)
+```
+
+
+### K-means
+```{r}
+set.seed(42)
+k3 = kmeans(data_clus, centers = 3, iter.max = 50, nstart = 1)
+k3
+```
+
+```{r}
+k3$cluster %>% table
+kmeans_result = k3$cluster
+kmeans_result
+```
+
+
+```{r}
+distance <- dist(data_clus, method= "euclidean")
+
+sil_mean = silhouette(k3$cluster, distance)
+plot(sil_mean, distance, col=1:2)
+```
+```{r}
+data$kmeans <- kmeans_result
+```
+
+```{r}
+data %>%
+  subset(select = -c(행정동코드, 시군구명, 행정동)) %>%
+  group_by(kmeans) %>% 
+  summarise(인구밀도 = mean(인구밀도),
+            거주인구 = mean(거주인구),
+            생활인구 = mean(생활인구),
+            면적 = mean(면적),
+            생활인구성격 = mean(생활인구성격),
+            거주비율 = mean(거주비율),
+            평균총소득 = mean(평균총소득),
+            충전소개수 = mean(충전소개수),
+            전기차개수 = mean(전기차개수),
+            충전소인프라 = mean(충전소인프라),
+            전체차량개수 = mean(전체차량개수),
+            전기차보급률 = mean(전기차보급률),
+            충전소접근성 = mean(충전소접근성),
+            전기사용량 = mean(전기사용량),
+            온실가스비율 = mean(온실가스비율),
+            주유소개수 = mean(주유소개수),
+            주유소접근성 = mean(주유소접근성),
+            전기차관심도 = mean(전기차관심도))
+```
+
+
+# 3개의 클러스터일때 그래프로 확인해보기
+```{r}
+fviz_cluster(k3, geom = c("point","text"), data = data_clus)+  
+  theme(panel.background = element_rect(fill = 'white', color = 'black', linetype='solid'),
+        axis.title.x = element_text(size = 12),
+        axis.title.y = element_text(size = 12),
+        axis.text.x = element_text(size = 7, face = "bold", colour = "grey50"),
+        axis.text.y = element_text(size = 7, face = "bold", colour = "grey50"), 
+        legend.title = element_text(face = "bold", size = 12),
+        legend.text = element_text(face = "bold", size = 10))+
+  ggtitle("k-means result")+
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"))+
+  scale_color_manual(values = hcl.colors(6, palette = "cold"))+
+  scale_fill_manual(values = hcl.colors(6, palette = "cold"))
+```
+
+
+### K-medoids
+```{r}
+set.seed(42)
+med3 = pam(data_clus ,k=3, stand=FALSE)
+med3$silinfo$avg.width
+med3$clustering %>% table
+```
+
+```{r}
+kmedoid_result = med3$clustering
+kmedoid_result
+data$kmedoids <- kmedoid_result
+```
+
+```{r}
+fviz_cluster(med3) + 
+  theme(panel.background = element_rect(fill = 'white', color = 'black', linetype='solid'), 
+        axis.title.x = element_text(size = 12), 
+        axis.title.y = element_text(size = 12),
+        axis.text.x = element_text(size = 7, face = "bold", colour = "grey50"), 
+        axis.text.y = element_text(size = 7, face = "bold", colour = "grey50"), 
+        legend.title = element_text(face = "bold", size = 12), 
+        legend.text = element_text(face = "bold", size = 10))+
+  ggtitle("k-medoids result")+
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"))+
+  scale_color_manual(values = hcl.colors(6, palette = "cold"))+
+  scale_fill_manual(values = hcl.colors(6, palette = "cold"))
+```
+
+```{r}
+sil_med = silhouette(med3$cluster, distance)
+plot(sil_med, distance, col=1:2)
+```
+
+
+### 계층적 클러스터링(hierarchical clustering)
+```{r}
+clust1 = eclust(data_clus, 'hclust', hc_method = 'average', k = 3)
+clust1$silinfo
+hclust_result = clust1$cluster ; hclust_result
+```
+
+```{r}
+hclust_result %>% as.data.frame() %>% table()
+```
+
+```{r}
+fviz_cluster(clust1) + 
+  theme(panel.background = element_rect(fill = 'white', color = 'black', linetype='solid')) + 
+  labs(x = '거주비율', y = "전기차관심도_s", title = '')+
+  scale_color_manual(values = hcl.colors(6, palette = "cold"))+
+  scale_fill_manual(values = hcl.colors(6, palette = "cold"))
+```
+```{r}
+data$hc <- hclust_result
+```
+
+```{r}
+data %>% cbind(hclust_result) %>% 
+  subset(select = -c(행정동코드, 시군구명, 행정동)) %>% group_by(hclust_result) %>% 
+  summarise(인구밀도 = mean(인구밀도),
+            거주인구 = mean(거주인구),
+            생활인구 = mean(생활인구),
+            면적 = mean(면적),
+            생활인구성격 = mean(생활인구성격),
+            거주비율 = mean(거주비율),
+            평균총소득 = mean(평균총소득),
+            충전소개수 = mean(충전소개수),
+            전기차개수 = mean(전기차개수),
+            충전소인프라 = mean(충전소인프라),
+            전체차량개수 = mean(전체차량개수),
+            전기차보급률 = mean(전기차보급률),
+            충전소접근성 = mean(충전소접근성))
+```
+
+
+# DBSCAN ### 진행은 하였지만, 애초에 이상치 탐지에 효과적인 모형이어서 현재 클러스터링에는 효과적이지 않음
+```{r}
+db_clust <- data_clus %>%
+  dbscan(scale = T, eps = 5, MinPts = 5, method = "hybrid") ;db_clust
+```
+
+
+```{r}
+db_clust %>%
+  fviz_cluster(data_clus, outlier.color = "red")+
+  labs(title = "DBSCAN result") +
+  theme_bw()+
+  scale_fill_manual(values = "#5CBD92") +
+  scale_color_manual(values = "#5CBD92")+
+  theme(plot.title = element_text(hjust = 0.5,face='bold'))
+```
+
+
+### Gaussian Mixture Model(가우시안 혼합 모델)
+```{r}
+hc1 <- hc(data_clus, modelName = "VVV", use = "SVD")
+# 초기값과 군집개수를 설정하기 위한 방법
+
+clust_result_bic = data_clus %>% mclustBIC(initialization = list(hcPairs = hc1))
+plot(clust_result_bic)
+clust_result_bic %>% summary
+
+mod <- Mclust(data_clus, x = clust_result_bic)
+plot(mod, what = "classification")
+plot(mod, what = "uncertainty")
+gaussian_result = mod$classification
+gaussian_result %>% table
+
+cs = cluster.stats(dist(data_clus), gaussian_result)
+cs[c("within.cluster.ss","avg.silwidth")]
+## 실루엣계수 확인
+
+gmm_df = data.frame(data_clus$거주비율, data_clus$전기차관심도_s, factor(gaussian_result))
+colnames(gmm_df) = c('거주비율', '전기차관심도_s', 'cluster')
+gmm_df %>% head
+```
+
+# 가우시안 믹스쳐 클러스터링 결과 시각화
+```{r}
+gmm_df %>% 
+  ggplot(aes(x = 거주비율, y = 전기차관심도_s)) +
+  geom_point(aes(col = cluster), lwd = 2) + 
+  stat_ellipse(aes(col = cluster), type = 'norm', lty = 2, lwd = 1) + 
+  stat_ellipse(aes(col = cluster), geom = 'polygon', alpha = 0.1) + 
+  theme(panel.background = element_rect(fill = 'white', color = 'black', linetype='solid'), 
+        axis.title.x = element_text(size = 12), 
+        axis.title.y = element_text(size = 12), 
+        plot.title = element_text(face = "bold", size = 16),
+        axis.text.x = element_text(size = 7, face = "bold", colour = "grey50"), 
+        axis.text.y = element_text(size = 7, face = "bold", colour = "grey50"), 
+        legend.title = element_text(face = "bold", size = 12), 
+        legend.text = element_text(face = "bold", size = 10)) +
+  scale_color_manual(values = hcl.colors(6, palette = "cold"))+
+  scale_fill_manual(values = hcl.colors(6, palette = "cold")) +
+  labs(x = '거주비율', y = '전기차관심도_s', title = 'Gaussian Mixture Model 클러스터링 결과')
+```
+
+# GMM 결과 조회
+```{r}
+data$gmm <- gaussian_result
+```
+
+```{r}
+write.csv(data, "clustered_data2.csv", fileEncoding = "cp949", row.names = FALSE)
+```
+```
+
+

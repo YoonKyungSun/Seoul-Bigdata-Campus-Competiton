@@ -1,0 +1,31 @@
+---
+title: "Untitled"
+output: html_document
+date: "2022-10-31"
+---
+
+```{r}
+library(tidyverse)
+library(magrittr)
+```
+
+
+```{r}
+dong_kcb <- read.csv('D:/Users/ChaeSoYeon/Desktop/서울시민 KCB 생활금융 통계_2021/dong_kcb_2021.csv', header = T, fileEncoding = 'CP949', encoding = 'UTF-8')
+```
+
+## 행정동 이름 변경
+```{r}
+#강남구, 관악구 모두 신사동이 있기에 행정동명을 각각 신사동_강, 신사동_관으로 변경
+
+dong_kcb$H_DNG_NM <- ifelse(dong_kcb$CT_NM == '강남구', gsub('신사동', '신사동_강', dong_kcb$H_DNG_NM), dong_kcb$H_DNG_NM)
+
+dong_kcb$H_DNG_NM <- ifelse(dong_kcb$CT_NM == '관악구', gsub('신사동', '신사동_관', dong_kcb$H_DNG_NM), dong_kcb$H_DNG_NM)
+```
+
+## 행정동 별 평균총소득, 30•40대 평균소득
+```{r}
+dong_kcb_2021 <- dong_kcb %>% group_by(H_DNG_NM) %>% summarise(avg_income = mean(STAT_H_DONG_013),
+                                              avg_income_30 = mean(STAT_H_DONG_024),
+                                              avg_income_40 = mean(STAT_H_DONG_025))
+```

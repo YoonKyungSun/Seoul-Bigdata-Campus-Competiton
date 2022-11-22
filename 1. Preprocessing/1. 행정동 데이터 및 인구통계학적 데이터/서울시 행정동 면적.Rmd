@@ -1,0 +1,55 @@
+---
+title: "Untitled"
+output: html_document
+date: "2022-10-24"
+---
+```{r}
+library(tidyverse)
+library(magrittr)
+```
+
+```{r}
+h_area <- read.csv('C:/Users/pc/Desktop/행정구역_20221024144823.csv', fileEncoding = 'UCS-2LE')
+h_area %<>% subset(select = c(1:5))
+```
+
+## 필요한 column (시도명, 시군구명, 행정동, 면적, 구성비)
+```{r}
+h_area <- h_area[-1,]
+names(h_area) <- h_area[1,]
+h_area <- h_area[-1,]
+
+h_area %<>% rename(c('시도명' = '동별(1)',
+                     '시군구명' = '동별(2)',
+                     '행정동' = '동별(3)',
+                     '면적(k㎡)' = '면적 (k㎡)',
+                     '구성비(%)' = '구성비 (%)'))
+
+h_area %<>% mutate_at(vars(`면적(k㎡)`, `구성비(%)`), as.numeric)
+```
+
+## 행정동 이름 변경
+```{r}
+#강남구, 관악구 모두 신사동이 있기에 행정동명을 각각 신사동_강, 신사동_관으로 변경
+
+h_area$행정동 <- ifelse(h_area$시군구명 == '강남구', gsub('신사동', '신사동_강', h_area$행정동), h_area$행정동)
+
+h_area$행정동 <- ifelse(h_area$시군구명 == '관악구', gsub('신사동', '신사동_관', h_area$행정동), h_area$행정동)
+```
+
+## '소계' 포함된 csv 파일
+```{r}
+h_area_sum <- h_area
+
+h_area_sum %>% head()
+```
+
+## '소계' 없는 csv 파일
+```{r}
+h_area %<>% filter(!(행정동 == c('소계')))
+
+h_area_nsum <- h_area
+
+h_area_nsum %>% head()
+```
+

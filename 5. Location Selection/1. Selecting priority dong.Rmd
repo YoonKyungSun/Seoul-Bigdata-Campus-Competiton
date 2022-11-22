@@ -1,0 +1,125 @@
+---
+title: "전기차 충전기_score"
+author: "JINHYEOK, KIM"
+date: "2022-10-31"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+setwd("C:/R_Program_Files/R_Working_Directory/PSAT/charging_station/final_final") #경로설정
+```
+
+## library
+
+```{r, message=F}
+library(dplyr)
+library(tidyverse)
+library(caret)
+library(data.table)
+library(plyr)
+library(ggplot2)
+library(stats)
+library(MASS)
+library(factoextra)
+library(magrittr)
+```
+
+
+## 전기차 충전기(급속) score
+
+```{r}
+station <- read.csv("station_yes_target.csv", header=T, fileEncoding = "cp949")
+
+station
+```
+
+```{r}
+final <- read.csv("final_1031_data.csv", header=T, fileEncoding = "cp949")
+
+final
+```
+
+```{r}
+final$한명당할당된충전소 <- 1- (final$충전소개수 / final$생활인구)
+
+final <- final[,-c(1,2)]
+final
+```
+
+```{r}
+yes_final <- final %>%
+  filter(주유소 > 0)
+
+yes_final
+```
+
+### 지수에 반영할 가중치를 계산하기 위한 PCA
+```{r}
+yes_final_pca <- yes_final %<>%
+  subset(select = c(한명당할당된충전소, 전기차개수, 충전소인프라))
+
+set.seed(42)
+
+yes_final_pca1 <- prcomp(yes_final_pca, center = FALSE, scale. = TRUE) ; yes_final_pca1
+
+summary(yes_final_pca1)
+```
+
+```{r}
+pc = c(-summary(yes_final_pca1)$rotation[1], -summary(yes_final_pca1)$rotation[2], -summary(yes_final_pca1)$rotation[3])
+
+pc
+```
+
+### minmax scaling 진행
+
+```{r}
+
+per_peo = 1 - (station$급속/station$생활인구)
+
+station_min <- transform(station,
+                         한명당할당된충전소=(per_peo-min(per_peo))/(max(per_peo)-min(per_peo))
+                           ,전기차개수_s=(station$전기차개수-min(station$전기차개수))/(max(station$전기차개수)-min(station$전기차개수)),  충전소인프라_s=(station$충전소인프라-min(station$충전소인프라))/(max(station$충전소인프라)-min(station$충전소인프라)))
+
+station_min
+```
+
+```{r}
+station_min_s %<>%
+  subset(select = c(행정동코드, 시군구명, 행정동, 한명당할당된충전소, 전기차개수_s, 충전소인프라_s))
+
+station_min_s
+```
+
+```{r}
+station_min_s_w %<>%
+  subset(select = c(한명당할당된충전소, 전기차개수_s, 충전소인프라_s))
+
+station_min_s_w
+```
+
+## 최종 지수 계산(score)
+```{r}
+range = 1:10
+
+score = c()
+
+for (i in range) {
+  score = c(score, sum(station_min_s_w[i,] * pc))
+}
+
+score
+```
+
+```{r}
+station_score <- cbind(station, score)[,-1]
+station_score #주유소가 존재하는 타겟 클러스터의 전기차충전기(급속) 필요 Score
+```
+
+```{r}
+station_score[order(station_score$score, decreasing = T),]
+
+#신촌동, 강남-서초구(비슷한 위치에 존재하기에 역삼1동, 방배2동, 서초3동에서 2개의 주유소 선정)
+```
+

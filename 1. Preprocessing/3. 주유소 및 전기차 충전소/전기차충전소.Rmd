@@ -1,0 +1,411 @@
+---
+title: "charging_station"
+author: "JINHYEOK, KIM"
+date: "2022-10-23"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+setwd("C:/R_Program_Files/R_Working_Directory/PSAT/charging_station")
+```
+
+## library
+
+```{r, message=F}
+library(dplyr)
+library(tidyverse)
+library(caret)
+library(data.table)
+library(plyr)
+library(ggplot2)
+```
+
+## 1. 전기차 충전소 데이터 비교
+
+### 전기차 충전소 데이터
+
+```{r}
+#충전기 타입 df
+
+type_df <- data.frame(type=c("01","02","04","05","06", "07"),
+                      충전기타입=c("DC차데모", "AC완속", "DC콤보", 
+                             "DC차데모+DC콤보", 
+                             "DC차데모+AC3상+DC콤보","AC3상"))
+type_df
+```
+
+#### 전기차 충전소 현황 (전체통합, 환경부, 한국전력)
+```{r}
+charge_total <- read.csv("서울 전기차 충전소 현황(전체 통합).csv", header=T)
+
+charge_total$type <- str_sub(charge_total$충전기타입, 1,2)
+
+charge_total <- left_join(charge_total, type_df, by="type")
+
+charge_total$slow <- ifelse(charge_total$type=="02", T, F)
+
+total_df <- as.data.frame(table(charge_total$slow,charge_total$충전소명))
+```
+
+```{r}
+charge_envir <- read.csv("서울 전기차 충전소 현황(환경부).csv", header=T, fileEncoding="cp949")
+
+charge_envir <- left_join(charge_envir, type_df, by="충전기타입")
+
+charge_envir$slow <- ifelse(charge_envir$type=="02", T, F)
+
+envir_df <- as.data.frame(table(charge_envir$slow,charge_envir$충전소))
+
+envir_df
+```
+
+```{r}
+charge_elec <- read.csv("한국전력_전기차 충전소 설치현황_20221013.csv", header=T, fileEncoding="cp949")
+
+charge_elec
+```
+
+#### 급속, 완속 구분된 전체, 환경부 데이터 join
+
+```{r}
+full_df <- full_join(total_df, envir_df, by=c("Var1", "Var2"))
+full_df
+
+#fast 개수 full_df[seq(1,11386,by=2),3]
+#slow 개수 full_df[seq(2,11386,by=2),4]
+```
+
+#### 전체, 환경부 데이터셋 합치기
+```{r}
+total_distinct_df <- as.data.frame(table(charge_total$충전소명))
+total_distinct_df
+
+envir_distinct_df <- as.data.frame(table(charge_envir$충전소))
+envir_distinct_df
+
+full_distinct_df <- full_join(total_distinct_df, envir_distinct_df, by="Var1")
+full_distinct_df
+```
+
+```{r}
+#각 데이터셋의 충전소별 완속, 급속 충전개수 넣기
+full_distinct_df$total_slow <- full_df[seq(2,nrow(full_df),by=2),3]
+full_distinct_df$total_fast <- full_df[seq(1,nrow(full_df),by=2),3]
+full_distinct_df$envir_slow <- full_df[seq(2,nrow(full_df),by=2),4]
+full_distinct_df$envir_fast <- full_df[seq(1,nrow(full_df),by=2),4]
+full_distinct_df <- full_distinct_df[,c(-2,-3)]; full_distinct_df
+```
+
+#### 한전 자료와 비교
+```{r}
+elec_compare <- left_join(full_distinct_df, charge_elec, by=c("Var1"="설치장소"));elec_compare
+
+elec_compare <- elec_compare[,c(1,2,3,4,5,9,8)]
+colnames(elec_compare)[c(6,7)] <- c("elec_slow","elec_fast")
+elec_compare
+
+elec_compare[complete.cases(elec_compare),]
+  #한전 데이터가 존재하는 충전소
+```
+
+```{r}
+getmode <- function(v) {
+  uniqv <- unique(v)
+  uniqv[which.max(tabulate(match(v, uniqv)))]
+}
+
+elec_compare[which(elec_compare$total_slow!=elec_compare$elec_slow),]
+```
+
+#### 전체통합 데이터와 환경부 데이터 비교 및 통합
+
+```{r}
+left_join(total_distinct_df, envir_distinct_df, by="Var1")[is.na(left_join(total_distinct_df, envir_distinct_df, by="Var1")$Freq.y),]
+
+#전체통합 데이터와 비교했을 때 환경부 데이터에 없는 충전소가 265개
+```
+
+```{r}
+right_join(total_distinct_df, envir_distinct_df, by="Var1")[is.na(right_join(total_distinct_df, envir_distinct_df, by="Var1")$Freq.x),]
+
+#환경부 데이터와 비교했을 때 전체통합 데이터에 없는 충전소가 17개
+#따라서 전체통합 데이터에 환경부 데이터 17개를 추가 (이름만 조금 다른 것일수도 있으니 확인하고)
+#강서구민올림픽체육센터, 공덕1-1공영주차장, 구파발광역환승센터 주차장, 롯데 VIC마켓 금천점, 힐스테이트송파위례
+#확인해본 결과 다음의 5개 충전소만 전체통합 데이터에 없음
+```
+
+```{r}
+append_charging <- c("강서구민올림픽체육센터", "공덕1-1공영주차장", "구파발광역환승센터 주차장", "롯데 VIC마켓 금천점", "힐스테이트송파위례")
+
+for (i in append_charging) {
+  full_distinct_df[full_distinct_df$Var1==i,2] <- full_distinct_df[full_distinct_df$Var1==i,4]
+  full_distinct_df[full_distinct_df$Var1==i,3] <- full_distinct_df[full_distinct_df$Var1==i,5]
+}
+```
+
+```{r}
+#환경부 데이터의 NA값은 전체통합 데이터 값으로 대체
+
+full_distinct_df[which(is.na(full_distinct_df$envir_slow)),4] <- full_distinct_df[which(is.na(full_distinct_df$envir_slow)),2]
+
+full_distinct_df[which(is.na(full_distinct_df$envir_fast)),5] <- full_distinct_df[which(is.na(full_distinct_df$envir_fast)),3]
+
+full_distinct_df
+```
+
+```{r}
+#이름만 조금 다른 같은 데이터값 없애기 (환경부)
+
+full_distinct_df <- full_distinct_df[complete.cases(full_distinct_df),]
+
+full_distinct_df
+```
+
+#### 다른 값은 더 큰 값으로 대체
+
+```{r}
+full_distinct_df[which(full_distinct_df$total_slow < full_distinct_df$envir_slow),]
+
+full_distinct_df[which(full_distinct_df$total_slow > full_distinct_df$envir_slow),]
+
+full_distinct_df[which(full_distinct_df$total_slow == full_distinct_df$envir_slow),]
+
+#충전소 5680개 가운데 4개는 환경부 데이터 값이 컸으며, 48개는 전체통합 데이터의 값이 더 컸다.
+#나머지 5628개의 충전소 데이터가 같기에 두 데이터셋이 거의 일치함을 알 수 있다.
+```
+
+```{r}
+full_distinct_df[which(full_distinct_df$total_fast < full_distinct_df$envir_fast),]
+
+full_distinct_df[which(full_distinct_df$total_fast > full_distinct_df$envir_fast),]
+
+full_distinct_df[which(full_distinct_df$total_fast == full_distinct_df$envir_fast),]
+
+#급속충전소의 경우도 총 5680개의 충전소 중 5647개의 충전소 값이 같게 나왔다.
+```
+
+```{r}
+#더 큰 값으로 작은 값을 대체
+full_distinct_df[which(full_distinct_df$total_slow > full_distinct_df$envir_slow),4] <- full_distinct_df[which(full_distinct_df$total_slow > full_distinct_df$envir_slow),2]
+
+full_distinct_df[which(full_distinct_df$total_fast > full_distinct_df$envir_fast),5] <- full_distinct_df[which(full_distinct_df$total_fast > full_distinct_df$envir_fast),3]
+
+full_distinct_df[which(full_distinct_df$total_slow < full_distinct_df$envir_slow),2] <- full_distinct_df[which(full_distinct_df$total_slow < full_distinct_df$envir_slow),4]
+
+full_distinct_df[which(full_distinct_df$total_fast < full_distinct_df$envir_fast),3] <- full_distinct_df[which(full_distinct_df$total_fast < full_distinct_df$envir_fast),5]
+
+full_distinct_df
+```
+
+```{r}
+#큰 값으로 대체가 잘 되었는지 확인
+
+full_distinct_df[which(full_distinct_df$total_fast < full_distinct_df$envir_fast),]
+
+full_distinct_df[which(full_distinct_df$total_fast > full_distinct_df$envir_fast),]
+```
+
+```{r}
+# column 하나로 합치기 및 이름 바꾸기
+
+full_distinct_df <- full_distinct_df[,c(-4,-5)]
+colnames(full_distinct_df) = c("충전소", "완속", "급속")
+
+full_distinct_df
+```
+
+#### 주소 등 정보 넣기
+```{r}
+address_charging <- read.csv("전기차 충전소 주소.csv", header=T,
+                             fileEncoding = "cp949")
+
+final_df <- left_join(full_distinct_df, address_charging, 
+                      by=c("충전소"="충전소명"))
+
+final_df[final_df$충전소=="008252",4] <- "서울특별시 양천구 목동중앙북로 38"
+
+no_address <- c("dmc래미안e편한세상1단지", "dmc래미안e편한세상2단지", "dmc래미안e편한세상3단지", "dmc래미안e편한세상4단지")
+
+for (i in no_address) {
+  final_df[final_df$충전소==i,4] <- "서울특별시 서대문구 수색로 100"
+}
+
+final_df #충전소별 완속 급속 충전기수 및 도로명주소
+```
+
+
+## 2. 카카오 API 할당 이후
+
+### 각 충전소 행정동 구분, 행정동코드 넣기
+
+```{r}
+kakao_api <- read.csv("카카오 api 행정동.csv", header=T, fileEncoding = "cp949")
+
+kakao_api
+```
+
+```{r}
+dong_code <- read.csv("행정동코드_수정.csv", header=T)
+
+dong_code
+```
+
+```{r}
+#신사동 이름 바꾸기 (관악구, 강남구)
+
+kakao_api[kakao_api$행정동=="신사동",][grep("관악구",kakao_api[kakao_api$행정동=="신사동",]$주소),8] <- "신사동_관"
+kakao_api[kakao_api$행정동=="신사동",][grep("강남구",kakao_api[kakao_api$행정동=="신사동",]$주소),8] <- "신사동_강"
+
+```
+
+
+```{r}
+merge(kakao_api, dong_code, by="행정동", all.x=T)
+```
+
+
+```{r}
+echarge_total <- merge(kakao_api, dong_code, by="행정동", all.x=T)[,c(2,3,4,5,11,1,9,6,7,8)]
+
+colnames(echarge_total)[4] <- "도로명주소"
+
+echarge_total #전기차 충전소 주소 넣은 전체 데이터
+```
+
+
+## 3. 행정동별, 자치구별 전기차 충전소 개수
+
+### 행정동별 충전소 개수
+
+```{r}
+echarge_total <- read.csv("echarge_total.csv", header=T, fileEncoding = "cp949")[,-1]
+
+echarge_total
+```
+
+```{r}
+echarge_dong <- cbind(aggregate(echarge_total$완속, list(echarge_total$행정동), FUN=sum), aggregate(echarge_total$급속, list(echarge_total$행정동), FUN=sum)[,2])
+
+colnames(echarge_dong) <- c("행정동", "완속", "급속")
+
+echarge_dong
+```
+
+```{r}
+dong_code <- read.csv("행정동코드_수정.csv", header=T)
+
+dong_code
+```
+
+```{r}
+echarge_dong_code <- merge(dong_code, echarge_dong, by="행정동", all.x=T)[,c(4,5,6,1,2,3)]
+
+echarge_dong_code
+```
+
+```{r}
+#충전기가 없는 지역, NA로 나온 값은 0으로 바꾸기
+
+echarge_dong_code[is.na(echarge_dong_code$완속),2] <- 0
+echarge_dong_code[is.na(echarge_dong_code$급속),3] <- 0
+
+echarge_dong_code <- echarge_dong_code[,c(5,6,1,4,2,3)]
+echarge_dong_code #행정동별 완속, 급속 충전기 개수 (행정동코드 포함함)
+```
+
+### 자치구별 충전소 개수
+
+```{r}
+echarge_dong <- read.csv("echarge_dong.csv", header=T, fileEncoding = "cp949")[,-1]
+
+echarge_dong
+```
+
+```{r}
+echarge_gu <- cbind(aggregate(echarge_dong$완속, list(echarge_dong$시군구명), FUN=sum), aggregate(echarge_dong$급속, list(echarge_dong$시군구명), FUN=sum)[,2])
+
+colnames(echarge_gu) <- c("자치구", "완속", "급속")
+
+echarge_gu #자치구별 완속, 급속 충전기 개수
+```
+
+
+## 4. 이용자 제한 행정동 넣기
+
+### 각 충전소별 이용자 제한
+
+```{r}
+charge_envir_lim <- read.csv("서울 전기차 충전소 현황(환경부)_이용제한.csv", header=T, fileEncoding="cp949")
+
+charge_envir_lim
+```
+
+```{r}
+charge_envir_lim$이용제한 <- ifelse(charge_envir_lim$이용자.제한=="제한적이용", T, F)
+
+charge_envir_lim
+```
+
+```{r}
+echarge_total <- read.csv("echarge_total.csv", header=T, fileEncoding = "cp949")[,-1]
+
+echarge_total
+```
+
+```{r}
+echarge_lim <- left_join(echarge_total, charge_envir_lim, by="충전소")[,-11]
+
+echarge_lim[is.na(echarge_lim$이용제한),11] <- FALSE
+
+echarge_lim #각 전기차 충전소별 제한여부 포함
+```
+
+```{r}
+echarge_lim$개수 <- 1
+
+echarge_lim
+```
+
+```{r}
+echarge_limit <- cbind(aggregate(echarge_lim$완속, list(echarge_lim$행정동), FUN=sum), aggregate(echarge_lim$급속, list(echarge_lim$행정동), FUN=sum),aggregate(echarge_lim$이용제한, list(echarge_lim$행정동), FUN=sum),aggregate(echarge_lim$개수, list(echarge_lim$행정동), FUN=sum)[,2])
+
+
+echarge_limit <- echarge_limit[,c(1,2,4,6,7)]
+
+colnames(echarge_limit) <- c("행정동", "완속", "급속", "이용제한", "동별_충전소")
+
+echarge_limit <- echarge_limit %>% mutate(이용제한비율=이용제한/동별_충전소)
+
+echarge_limit <- echarge_limit[,c(1,2,3,6)]
+
+echarge_limit
+```
+
+```{r}
+#충전기가 없는 행정동
+
+setdiff(dong_code$행정동, echarge_limit$행정동)
+```
+
+```{r}
+echarge_limit <- rbind(echarge_limit, c("창신2동",0,0,0))
+
+echarge_limit <- rbind(echarge_limit, c("독산2동",0,0,0))
+
+echarge_limit
+```
+
+```{r}
+echarge_dong <- read.csv("echarge_dong.csv", header=T, fileEncoding = "cp949")[,-1]
+
+echarge_dong
+```
+
+```{r}
+echarge_dong_limit <- left_join(echarge_dong, echarge_limit, by="행정동")[,c(1,2,3,4,5,6,9)]
+
+colnames(echarge_dong_limit) <- c("행정동코드", "시도명", "시군구명", "행정동", "완속", "급속", "이용제한비율")
+
+echarge_dong_limit #행정동별 이용제한 충전소 비율
+```

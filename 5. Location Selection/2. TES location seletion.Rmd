@@ -1,0 +1,111 @@
+---
+title: "distance"
+author: "JINHYEOK, KIM"
+date: "2022-11-01"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+setwd("C:/R_Program_Files/R_Working_Directory/PSAT/charging_station/final_final")
+```
+
+## library
+
+```{r, message=F}
+library(dplyr)
+library(tidyverse)
+library(caret)
+library(data.table)
+library(plyr)
+library(ggplot2)
+library(stats)
+library(MASS)
+library(factoextra)
+library(magrittr)
+library(data.table)
+library(tidyverse)
+library(geosphere)
+```
+
+```{r}
+echarge <- read.csv("echarge_total_lim.csv", header=T, fileEncoding = "cp949")
+oil <- read.csv("seoul_oil_sinsa.csv", header=T, fileEncoding = "cp949")
+```
+
+### 강남구, 서초구 주유소 별 충전소까지의 거리
+
+```{r}
+gangnam_seocho_echarge <- echarge %>% filter(행정동 == '역삼1동' | 행정동 == '방배2동' | 행정동 == "서초3동")
+gangnam_seocho_echarge <- gangnam_seocho_echarge[,c(9,10)]
+gangnam_seocho_oil <- oil %>% filter(행정동 == '역삼1동' | 행정동 == '방배2동' | 행정동 == "서초3동")
+
+colnames(gangnam_seocho_echarge) <- c('long','lat')
+gangnam_seocho_echarge$long <- gangnam_seocho_echarge$long %>% as.numeric
+gangnam_seocho_echarge$lat <- gangnam_seocho_echarge$lat %>% as.numeric
+
+### 주유소 별 충전소까지의 거리
+dist_gangnam_seocho <- matrix(nrow = nrow(gangnam_seocho_oil), ncol = nrow(gangnam_seocho_echarge))
+for (i in 1:nrow(gangnam_seocho_oil)) {
+  lon1 <- gangnam_seocho_oil$경도[i]
+  lat1 <- gangnam_seocho_oil$위도[i]
+  for (j in 1:nrow(gangnam_seocho_echarge)) {
+    lon2 <- gangnam_seocho_echarge$long[j]
+    lat2 <- gangnam_seocho_echarge$lat[j]
+    
+    dist_gangnam_seocho[i,j] <-  distHaversine(c(lon1, lat1), c(lon2, lat2))
+  }
+  if (i %% 10 == 0) {
+    print(i)
+  }
+}
+
+dist_gangnam_seocho <- dist_gangnam_seocho %>% as.data.frame()
+dist_gangnam_seocho$idx <- 1:nrow(dist_gangnam_seocho)
+```
+
+```{r}
+###각 주유소 별 가장 가까운 전기차 충전소까지의 거리
+
+apply(dist_gangnam_seocho[,-length(dist_gangnam_seocho)], 1, FUN = min, na.rm = TRUE)
+```
+
+### 신촌동 주유소 별 충전소까지의 거리
+
+```{r}
+### 편의상 행정동 변수 이름은 sinchon으로 통일
+sinchon_echarge <- echarge %>% filter(행정동 == '신촌동')
+sinchon_echarge <- sinchon_echarge[,c(9,10)]
+sinchon_oil <- oil %>% filter(행정동 == '신촌동')
+
+colnames(sinchon_echarge) <- c('long','lat')
+sinchon_echarge$long <- sinchon_echarge$long %>% as.numeric
+sinchon_echarge$lat <- sinchon_echarge$lat %>% as.numeric
+
+### 주유소 별 충전소까지의 거리
+dist_sinchon <- matrix(nrow = nrow(sinchon_oil), ncol = nrow(sinchon_echarge))
+for (i in 1:nrow(sinchon_oil)) {
+  lon1 <- sinchon_oil$경도[i]
+  lat1 <- sinchon_oil$위도[i]
+  for (j in 1:nrow(sinchon_echarge)) {
+    lon2 <- sinchon_echarge$long[j]
+    lat2 <- sinchon_echarge$lat[j]
+    
+    dist_sinchon[i,j] <-  distHaversine(c(lon1, lat1), c(lon2, lat2))
+  }
+  if (i %% 10 == 0) {
+    print(i)
+  }
+}
+
+dist_sinchon <- dist_sinchon %>% as.data.frame()
+dist_sinchon$idx <- 1:nrow(dist_sinchon)
+```
+
+```{r}
+###각 주유소 별 가장 가까운 전기차 충전소까지의 거리
+
+apply(dist_sinchon[,-length(dist_sinchon)], 1, FUN = min, na.rm = TRUE)
+```
+
+

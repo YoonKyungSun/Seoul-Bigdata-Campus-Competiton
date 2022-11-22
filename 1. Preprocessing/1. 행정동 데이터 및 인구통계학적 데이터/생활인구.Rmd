@@ -1,0 +1,501 @@
+---
+title: "local living"
+author: "Jongseok Yu"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+library(tidyverse)
+library(magrittr)
+library(data.table)
+library(lubridate)
+```
+
+```{r}
+Sys.getlocale()
+Sys.setlocale("LC_ALL","C") # 강제 언어 삭제
+Sys.setlocale("LC_ALL","Korean") # 언어 다시 한글로
+```
+
+```{r}
+local_01 <- read.csv("C:\\Users\\yjs49\\Desktop\\ecar_EDA\\population\\living\\local_202101.csv",header = T, encoding = "UTF-8")
+local_01 %<>%
+  rename("dayID" = "X.U.FEFF.기준일ID",
+         "time" = "시간대구분",
+         "dongcode" = "행정동코드")
+local_01
+```
+
+
+```{r}
+name <- read.csv("C:\\Users\\yjs49\\Desktop\\ecar_EDA\\population\\living\\행정동코드.csv")
+name %<>%
+  subset(select = -c(H_SDNG_CD.통계청행정동코드., DO_NM.시도명.)) %>%
+  rename("dongcode"= "H_DNG_CD.행자부행정동코드.",
+         "gu" = "CT_NM.시군구명.",
+         "dong" = "H_DNG_NM.행정동명.")
+```
+
+
+```{r}
+local_01_pop <- local_01 %>%
+  subset(select = -c(dayID, time)) %>%
+  group_by(dongcode) %>%
+  summarize(total = sum(총생활인구수),
+            m00_09 = sum(남자0세부터9세생활인구수),
+           m10_19 = sum(남자10세부터14세생활인구수,남자15세부터19세생활인구수),
+           m20_29 = sum(남자20세부터24세생활인구수,남자25세부터29세생활인구수),
+           m30_39 = sum(남자30세부터34세생활인구수,남자35세부터39세생활인구수),
+           m40_49 = sum(남자40세부터44세생활인구수,남자45세부터49세생활인구수),
+           m50_59 = sum(남자50세부터54세생활인구수,남자55세부터59세생활인구수),
+           m60_69 = sum(남자60세부터64세생활인구수,남자65세부터69세생활인구수),
+           m70_up = sum(남자70세이상생활인구수),
+           f00_09 = sum(여자0세부터9세생활인구수),
+           f10_19 = sum(여자10세부터14세생활인구수,여자15세부터19세생활인구수),
+           f20_29 = sum(여자20세부터24세생활인구수,여자25세부터29세생활인구수),
+           f30_39 = sum(여자30세부터34세생활인구수,여자35세부터39세생활인구수),
+           f40_49 = sum(여자40세부터44세생활인구수,여자45세부터49세생활인구수),
+           f50_59 = sum(여자50세부터54세생활인구수,여자55세부터59세생활인구수),
+           f60_69 = sum(여자60세부터64세생활인구수,여자65세부터69세생활인구수),
+           f70_up = sum(여자70세이상생활인구수))
+
+local_01_pop
+```
+
+
+```{r}
+local_01_pop <- left_join(local_01_pop, name, by="dongcode")
+local_01_pop
+```
+
+
+```{r}
+colSums(is.na(local_01_pop))
+```
+
+# 아맞다 2월부터 12월까지 다 해야지?
+### 2월
+```{r}
+local_02 <- read.csv("C:\\Users\\yjs49\\Desktop\\living\\local_202102.csv", header = T, encoding = "UTF-8")
+local_02 %<>%
+  rename("dayID" = "X.U.FEFF.기준일",
+         "time" = "시간대구분",
+         "dongcode" = "행정동코드")
+
+local_02_pop <- local_02 %>%
+  subset(select = -c(dayID, time)) %>%
+  group_by(dongcode) %>%
+  summarize(total = sum(총생활인구수),
+            m00_09 = sum(남자0세부터9세생활인구수),
+            m10_19 = sum(남자10세부터14세생활인구수,남자15세부터19세생활인구수),
+           m20_29 = sum(남자20세부터24세생활인구수,남자25세부터29세생활인구수),
+           m30_39 = sum(남자30세부터34세생활인구수,남자35세부터39세생활인구수),
+           m40_49 = sum(남자40세부터44세생활인구수,남자45세부터49세생활인구수),
+           m50_59 = sum(남자50세부터54세생활인구수,남자55세부터59세생활인구수),
+           m60_69 = sum(남자60세부터64세생활인구수,남자65세부터69세생활인구수),
+           m70_up = sum(남자70세이상생활인구수),
+           f00_09 = sum(여자0세부터9세생활인구수),
+           f10_19 = sum(여자10세부터14세생활인구수,여자15세부터19세생활인구수),
+           f20_29 = sum(여자20세부터24세생활인구수,여자25세부터29세생활인구수),
+           f30_39 = sum(여자30세부터34세생활인구수,여자35세부터39세생활인구수),
+           f40_49 = sum(여자40세부터44세생활인구수,여자45세부터49세생활인구수),
+           f50_59 = sum(여자50세부터54세생활인구수,여자55세부터59세생활인구수),
+           f60_69 = sum(여자60세부터64세생활인구수,여자65세부터69세생활인구수),
+           f70_up = sum(여자70세이상생활인구수))
+
+local_02_pop <- left_join(local_02_pop, name, by="dongcode")
+```
+
+
+```{r}
+local_03 <- read.csv("C:\\Users\\yjs49\\Desktop\\living\\local_202103.csv", header = T, encoding = "UTF-8")
+local_03 %<>%
+  rename("dayID" = "X.U.FEFF.기준일",
+         "time" = "시간대구분",
+         "dongcode" = "행정동코드")
+
+local_03_pop <- local_03 %>%
+  subset(select = -c(dayID, time)) %>%
+  group_by(dongcode) %>%
+  summarize(total = sum(총생활인구수),
+            m00_09 = sum(남자0세부터9세생활인구수),
+           m10_19 = sum(남자10세부터14세생활인구수,남자15세부터19세생활인구수),
+           m20_29 = sum(남자20세부터24세생활인구수,남자25세부터29세생활인구수),
+           m30_39 = sum(남자30세부터34세생활인구수,남자35세부터39세생활인구수),
+           m40_49 = sum(남자40세부터44세생활인구수,남자45세부터49세생활인구수),
+           m50_59 = sum(남자50세부터54세생활인구수,남자55세부터59세생활인구수),
+           m60_69 = sum(남자60세부터64세생활인구수,남자65세부터69세생활인구수),
+           m70_up = sum(남자70세이상생활인구수),
+           f00_09 = sum(여자0세부터9세생활인구수),
+           f10_19 = sum(여자10세부터14세생활인구수,여자15세부터19세생활인구수),
+           f20_29 = sum(여자20세부터24세생활인구수,여자25세부터29세생활인구수),
+           f30_39 = sum(여자30세부터34세생활인구수,여자35세부터39세생활인구수),
+           f40_49 = sum(여자40세부터44세생활인구수,여자45세부터49세생활인구수),
+           f50_59 = sum(여자50세부터54세생활인구수,여자55세부터59세생활인구수),
+           f60_69 = sum(여자60세부터64세생활인구수,여자65세부터69세생활인구수),
+           f70_up = sum(여자70세이상생활인구수))
+
+local_03_pop <- left_join(local_03_pop, name, by="dongcode")
+```
+
+
+```{r}
+local_04 <- read.csv("C:\\Users\\yjs49\\Desktop\\living\\local_202104.csv", header = T, encoding = "UTF-8")
+local_04 %<>%
+  rename("dayID" = "X.U.FEFF.기준일",
+         "time" = "시간대구분",
+         "dongcode" = "행정동코드")
+
+local_04_pop <- local_04 %>%
+  subset(select = -c(dayID, time)) %>%
+  group_by(dongcode) %>%
+  summarize(total = sum(총생활인구수),
+            m00_09 = sum(남자0세부터9세생활인구수),
+           m10_19 = sum(남자10세부터14세생활인구수,남자15세부터19세생활인구수),
+           m20_29 = sum(남자20세부터24세생활인구수,남자25세부터29세생활인구수),
+           m30_39 = sum(남자30세부터34세생활인구수,남자35세부터39세생활인구수),
+           m40_49 = sum(남자40세부터44세생활인구수,남자45세부터49세생활인구수),
+           m50_59 = sum(남자50세부터54세생활인구수,남자55세부터59세생활인구수),
+           m60_69 = sum(남자60세부터64세생활인구수,남자65세부터69세생활인구수),
+           m70_up = sum(남자70세이상생활인구수),
+           f00_09 = sum(여자0세부터9세생활인구수),
+           f10_19 = sum(여자10세부터14세생활인구수,여자15세부터19세생활인구수),
+           f20_29 = sum(여자20세부터24세생활인구수,여자25세부터29세생활인구수),
+           f30_39 = sum(여자30세부터34세생활인구수,여자35세부터39세생활인구수),
+           f40_49 = sum(여자40세부터44세생활인구수,여자45세부터49세생활인구수),
+           f50_59 = sum(여자50세부터54세생활인구수,여자55세부터59세생활인구수),
+           f60_69 = sum(여자60세부터64세생활인구수,여자65세부터69세생활인구수),
+           f70_up = sum(여자70세이상생활인구수))
+
+local_04_pop <- left_join(local_04_pop, name, by="dongcode")
+```
+
+
+```{r}
+local_05 <- read.csv("C:\\Users\\yjs49\\Desktop\\living\\local_202105.csv", header = T, encoding = "UTF-8")
+local_05 %<>%
+  rename("dayID" = "X.U.FEFF.기준일",
+         "time" = "시간대구분",
+         "dongcode" = "행정동코드")
+
+local_05_pop <- local_05 %>%
+  subset(select = -c(dayID, time)) %>%
+  group_by(dongcode) %>%
+  summarize(total = sum(총생활인구수),
+            m00_09 = sum(남자0세부터9세생활인구수),
+           m10_19 = sum(남자10세부터14세생활인구수,남자15세부터19세생활인구수),
+           m20_29 = sum(남자20세부터24세생활인구수,남자25세부터29세생활인구수),
+           m30_39 = sum(남자30세부터34세생활인구수,남자35세부터39세생활인구수),
+           m40_49 = sum(남자40세부터44세생활인구수,남자45세부터49세생활인구수),
+           m50_59 = sum(남자50세부터54세생활인구수,남자55세부터59세생활인구수),
+           m60_69 = sum(남자60세부터64세생활인구수,남자65세부터69세생활인구수),
+           m70_up = sum(남자70세이상생활인구수),
+           f00_09 = sum(여자0세부터9세생활인구수),
+           f10_19 = sum(여자10세부터14세생활인구수,여자15세부터19세생활인구수),
+           f20_29 = sum(여자20세부터24세생활인구수,여자25세부터29세생활인구수),
+           f30_39 = sum(여자30세부터34세생활인구수,여자35세부터39세생활인구수),
+           f40_49 = sum(여자40세부터44세생활인구수,여자45세부터49세생활인구수),
+           f50_59 = sum(여자50세부터54세생활인구수,여자55세부터59세생활인구수),
+           f60_69 = sum(여자60세부터64세생활인구수,여자65세부터69세생활인구수),
+           f70_up = sum(여자70세이상생활인구수))
+
+local_05_pop <- left_join(local_05_pop, name, by="dongcode")
+```
+
+
+```{r}
+local_06 <- read.csv("C:\\Users\\yjs49\\Desktop\\living\\local_202106.csv", header = T, encoding = "UTF-8")
+local_06 %<>%
+  rename("dayID" = "X.U.FEFF.기준일",
+         "time" = "시간대구분",
+         "dongcode" = "행정동코드")
+
+local_06_pop <- local_06 %>%
+  subset(select = -c(dayID, time)) %>%
+  group_by(dongcode) %>%
+  summarize(total = sum(총생활인구수),
+            m00_09 = sum(남자0세부터9세생활인구수),
+           m10_19 = sum(남자10세부터14세생활인구수,남자15세부터19세생활인구수),
+           m20_29 = sum(남자20세부터24세생활인구수,남자25세부터29세생활인구수),
+           m30_39 = sum(남자30세부터34세생활인구수,남자35세부터39세생활인구수),
+           m40_49 = sum(남자40세부터44세생활인구수,남자45세부터49세생활인구수),
+           m50_59 = sum(남자50세부터54세생활인구수,남자55세부터59세생활인구수),
+           m60_69 = sum(남자60세부터64세생활인구수,남자65세부터69세생활인구수),
+           m70_up = sum(남자70세이상생활인구수),
+           f00_09 = sum(여자0세부터9세생활인구수),
+           f10_19 = sum(여자10세부터14세생활인구수,여자15세부터19세생활인구수),
+           f20_29 = sum(여자20세부터24세생활인구수,여자25세부터29세생활인구수),
+           f30_39 = sum(여자30세부터34세생활인구수,여자35세부터39세생활인구수),
+           f40_49 = sum(여자40세부터44세생활인구수,여자45세부터49세생활인구수),
+           f50_59 = sum(여자50세부터54세생활인구수,여자55세부터59세생활인구수),
+           f60_69 = sum(여자60세부터64세생활인구수,여자65세부터69세생활인구수),
+           f70_up = sum(여자70세이상생활인구수))
+
+local_06_pop <- left_join(local_06_pop, name, by="dongcode")
+```
+
+
+```{r}
+local_07 <- read.csv("C:\\Users\\yjs49\\Desktop\\living\\local_202107.csv", header = T, encoding = "UTF-8")
+local_07 %<>%
+  rename("dayID" = "X.U.FEFF.기준일",
+         "time" = "시간대구분",
+         "dongcode" = "행정동코드")
+
+local_07_pop <- local_07 %>%
+  subset(select = -c(dayID, time)) %>%
+  group_by(dongcode) %>%
+  summarize(total = sum(총생활인구수),
+            m00_09 = sum(남자0세부터9세생활인구수),
+           m10_19 = sum(남자10세부터14세생활인구수,남자15세부터19세생활인구수),
+           m20_29 = sum(남자20세부터24세생활인구수,남자25세부터29세생활인구수),
+           m30_39 = sum(남자30세부터34세생활인구수,남자35세부터39세생활인구수),
+           m40_49 = sum(남자40세부터44세생활인구수,남자45세부터49세생활인구수),
+           m50_59 = sum(남자50세부터54세생활인구수,남자55세부터59세생활인구수),
+           m60_69 = sum(남자60세부터64세생활인구수,남자65세부터69세생활인구수),
+           m70_up = sum(남자70세이상생활인구수),
+           f00_09 = sum(여자0세부터9세생활인구수),
+           f10_19 = sum(여자10세부터14세생활인구수,여자15세부터19세생활인구수),
+           f20_29 = sum(여자20세부터24세생활인구수,여자25세부터29세생활인구수),
+           f30_39 = sum(여자30세부터34세생활인구수,여자35세부터39세생활인구수),
+           f40_49 = sum(여자40세부터44세생활인구수,여자45세부터49세생활인구수),
+           f50_59 = sum(여자50세부터54세생활인구수,여자55세부터59세생활인구수),
+           f60_69 = sum(여자60세부터64세생활인구수,여자65세부터69세생활인구수),
+           f70_up = sum(여자70세이상생활인구수))
+
+local_07_pop <- left_join(local_07_pop, name, by="dongcode")
+```
+
+
+```{r}
+local_08 <- read.csv("C:\\Users\\yjs49\\Desktop\\living\\local_202108.csv", header = T, encoding = "UTF-8")
+local_08 %<>%
+  rename("dayID" = "X.U.FEFF.기준일",
+         "time" = "시간대구분",
+         "dongcode" = "행정동코드")
+
+local_08_pop <- local_08 %>%
+  subset(select = -c(dayID, time)) %>%
+  group_by(dongcode) %>%
+  summarize(total = sum(총생활인구수),
+            m00_09 = sum(남자0세부터9세생활인구수),
+           m10_19 = sum(남자10세부터14세생활인구수,남자15세부터19세생활인구수),
+           m20_29 = sum(남자20세부터24세생활인구수,남자25세부터29세생활인구수),
+           m30_39 = sum(남자30세부터34세생활인구수,남자35세부터39세생활인구수),
+           m40_49 = sum(남자40세부터44세생활인구수,남자45세부터49세생활인구수),
+           m50_59 = sum(남자50세부터54세생활인구수,남자55세부터59세생활인구수),
+           m60_69 = sum(남자60세부터64세생활인구수,남자65세부터69세생활인구수),
+           m70_up = sum(남자70세이상생활인구수),
+           f00_09 = sum(여자0세부터9세생활인구수),
+           f10_19 = sum(여자10세부터14세생활인구수,여자15세부터19세생활인구수),
+           f20_29 = sum(여자20세부터24세생활인구수,여자25세부터29세생활인구수),
+           f30_39 = sum(여자30세부터34세생활인구수,여자35세부터39세생활인구수),
+           f40_49 = sum(여자40세부터44세생활인구수,여자45세부터49세생활인구수),
+           f50_59 = sum(여자50세부터54세생활인구수,여자55세부터59세생활인구수),
+           f60_69 = sum(여자60세부터64세생활인구수,여자65세부터69세생활인구수),
+           f70_up = sum(여자70세이상생활인구수))
+
+local_08_pop <- left_join(local_08_pop, name, by="dongcode")
+```
+
+
+```{r}
+local_09 <- read.csv("C:\\Users\\yjs49\\Desktop\\living\\local_202109.csv", header = T, encoding = "UTF-8")
+local_09 %<>%
+  rename("dayID" = "X.U.FEFF.기준일",
+         "time" = "시간대구분",
+         "dongcode" = "행정동코드")
+
+local_09_pop <- local_09 %>%
+  subset(select = -c(dayID, time)) %>%
+  group_by(dongcode) %>%
+  summarize(total = sum(총생활인구수),
+            m00_09 = sum(남자0세부터9세생활인구수),
+           m10_19 = sum(남자10세부터14세생활인구수,남자15세부터19세생활인구수),
+           m20_29 = sum(남자20세부터24세생활인구수,남자25세부터29세생활인구수),
+           m30_39 = sum(남자30세부터34세생활인구수,남자35세부터39세생활인구수),
+           m40_49 = sum(남자40세부터44세생활인구수,남자45세부터49세생활인구수),
+           m50_59 = sum(남자50세부터54세생활인구수,남자55세부터59세생활인구수),
+           m60_69 = sum(남자60세부터64세생활인구수,남자65세부터69세생활인구수),
+           m70_up = sum(남자70세이상생활인구수),
+           f00_09 = sum(여자0세부터9세생활인구수),
+           f10_19 = sum(여자10세부터14세생활인구수,여자15세부터19세생활인구수),
+           f20_29 = sum(여자20세부터24세생활인구수,여자25세부터29세생활인구수),
+           f30_39 = sum(여자30세부터34세생활인구수,여자35세부터39세생활인구수),
+           f40_49 = sum(여자40세부터44세생활인구수,여자45세부터49세생활인구수),
+           f50_59 = sum(여자50세부터54세생활인구수,여자55세부터59세생활인구수),
+           f60_69 = sum(여자60세부터64세생활인구수,여자65세부터69세생활인구수),
+           f70_up = sum(여자70세이상생활인구수))
+
+local_09_pop <- left_join(local_09_pop, name, by="dongcode")
+```
+
+
+```{r}
+local_10 <- read.csv("C:\\Users\\yjs49\\Desktop\\living\\local_202110.csv", header = T, encoding = "UTF-8")
+local_10 %<>%
+  rename("dayID" = "X.U.FEFF.기준일",
+         "time" = "시간대구분",
+         "dongcode" = "행정동코드")
+
+local_10_pop <- local_10 %>%
+  subset(select = -c(dayID, time)) %>%
+  group_by(dongcode) %>%
+  summarize(total = sum(총생활인구수),
+            m00_09 = sum(남자0세부터9세생활인구수),
+           m10_19 = sum(남자10세부터14세생활인구수,남자15세부터19세생활인구수),
+           m20_29 = sum(남자20세부터24세생활인구수,남자25세부터29세생활인구수),
+           m30_39 = sum(남자30세부터34세생활인구수,남자35세부터39세생활인구수),
+           m40_49 = sum(남자40세부터44세생활인구수,남자45세부터49세생활인구수),
+           m50_59 = sum(남자50세부터54세생활인구수,남자55세부터59세생활인구수),
+           m60_69 = sum(남자60세부터64세생활인구수,남자65세부터69세생활인구수),
+           m70_up = sum(남자70세이상생활인구수),
+           f00_09 = sum(여자0세부터9세생활인구수),
+           f10_19 = sum(여자10세부터14세생활인구수,여자15세부터19세생활인구수),
+           f20_29 = sum(여자20세부터24세생활인구수,여자25세부터29세생활인구수),
+           f30_39 = sum(여자30세부터34세생활인구수,여자35세부터39세생활인구수),
+           f40_49 = sum(여자40세부터44세생활인구수,여자45세부터49세생활인구수),
+           f50_59 = sum(여자50세부터54세생활인구수,여자55세부터59세생활인구수),
+           f60_69 = sum(여자60세부터64세생활인구수,여자65세부터69세생활인구수),
+           f70_up = sum(여자70세이상생활인구수))
+
+local_10_pop <- left_join(local_10_pop, name, by="dongcode")
+```
+
+
+```{r}
+local_11 <- read.csv("C:\\Users\\yjs49\\Desktop\\living\\local_202111.csv", header = T, encoding = "UTF-8")
+local_11 %<>%
+  rename("dayID" = "X.U.FEFF.기준일",
+         "time" = "시간대구분",
+         "dongcode" = "행정동코드")
+
+local_11_pop <- local_11 %>%
+  subset(select = -c(dayID, time)) %>%
+  group_by(dongcode) %>%
+  summarize(total = sum(총생활인구수),
+            m00_09 = sum(남자0세부터9세생활인구수),
+           m10_19 = sum(남자10세부터14세생활인구수,남자15세부터19세생활인구수),
+           m20_29 = sum(남자20세부터24세생활인구수,남자25세부터29세생활인구수),
+           m30_39 = sum(남자30세부터34세생활인구수,남자35세부터39세생활인구수),
+           m40_49 = sum(남자40세부터44세생활인구수,남자45세부터49세생활인구수),
+           m50_59 = sum(남자50세부터54세생활인구수,남자55세부터59세생활인구수),
+           m60_69 = sum(남자60세부터64세생활인구수,남자65세부터69세생활인구수),
+           m70_up = sum(남자70세이상생활인구수),
+           f00_09 = sum(여자0세부터9세생활인구수),
+           f10_19 = sum(여자10세부터14세생활인구수,여자15세부터19세생활인구수),
+           f20_29 = sum(여자20세부터24세생활인구수,여자25세부터29세생활인구수),
+           f30_39 = sum(여자30세부터34세생활인구수,여자35세부터39세생활인구수),
+           f40_49 = sum(여자40세부터44세생활인구수,여자45세부터49세생활인구수),
+           f50_59 = sum(여자50세부터54세생활인구수,여자55세부터59세생활인구수),
+           f60_69 = sum(여자60세부터64세생활인구수,여자65세부터69세생활인구수),
+           f70_up = sum(여자70세이상생활인구수))
+
+local_11_pop <- left_join(local_11_pop, name, by="dongcode")
+```
+
+
+```{r}
+local_12 <- read.csv("C:\\Users\\yjs49\\Desktop\\living\\local_202112.csv", header = T, encoding = "UTF-8")
+local_12 %<>%
+  rename("dayID" = "X.U.FEFF.기준일",
+         "time" = "시간대구분",
+         "dongcode" = "행정동코드")
+
+local_12_pop <- local_12 %>%
+  subset(select = -c(dayID, time)) %>%
+  group_by(dongcode) %>%
+  summarize(total = sum(총생활인구수),
+            m00_09 = sum(남자0세부터9세생활인구수),
+           m10_19 = sum(남자10세부터14세생활인구수,남자15세부터19세생활인구수),
+           m20_29 = sum(남자20세부터24세생활인구수,남자25세부터29세생활인구수),
+           m30_39 = sum(남자30세부터34세생활인구수,남자35세부터39세생활인구수),
+           m40_49 = sum(남자40세부터44세생활인구수,남자45세부터49세생활인구수),
+           m50_59 = sum(남자50세부터54세생활인구수,남자55세부터59세생활인구수),
+           m60_69 = sum(남자60세부터64세생활인구수,남자65세부터69세생활인구수),
+           m70_up = sum(남자70세이상생활인구수),
+           f00_09 = sum(여자0세부터9세생활인구수),
+           f10_19 = sum(여자10세부터14세생활인구수,여자15세부터19세생활인구수),
+           f20_29 = sum(여자20세부터24세생활인구수,여자25세부터29세생활인구수),
+           f30_39 = sum(여자30세부터34세생활인구수,여자35세부터39세생활인구수),
+           f40_49 = sum(여자40세부터44세생활인구수,여자45세부터49세생활인구수),
+           f50_59 = sum(여자50세부터54세생활인구수,여자55세부터59세생활인구수),
+           f60_69 = sum(여자60세부터64세생활인구수,여자65세부터69세생활인구수),
+           f70_up = sum(여자70세이상생활인구수))
+
+local_12_pop <- left_join(local_12_pop, name, by="dongcode")
+```
+
+### 1월부터 12월까지 병합
+```{r}
+local_pop <- rbind(local_01_pop,local_02_pop,local_03_pop,local_04_pop,local_05_pop,local_06_pop,
+                   local_07_pop,local_08_pop,local_09_pop,local_10_pop,local_11_pop,local_12_pop)
+```
+
+
+```{r}
+final_local_pop  <- local_pop %>%
+  subset(select = -c(gu, dong)) %>%
+  group_by(dongcode) %>%
+  summarize(total = mean(total),
+            M00_09 = mean(m00_09),
+           M10_09 = mean(m10_19),
+           M20_09 = mean(m20_29),
+           M30_09 = mean(m30_39),
+           M40_09 = mean(m40_49),
+           M50_09 = mean(m50_59),
+           M60_09 = mean(m60_69),
+           M70_up = mean(m70_up),
+           F00_09 = mean(f00_09),
+           F10_09 = mean(f10_19),
+           F20_09 = mean(f20_29),
+           F30_09 = mean(f30_39),
+           F40_09 = mean(f40_49),
+           F50_09 = mean(f50_59),
+           F60_09 = mean(f60_69),
+           F70_up = mean(f70_up)) %>%
+  arrange()
+
+final_local_pop <- left_join(final_local_pop, name, by="dongcode")
+final_local_pop
+```
+
+
+```{r}
+write_csv(final_local_pop,"seoul_living_population.csv")
+```
+
+
+```{r}
+data = read.csv("C:\\Users\\yjs49\\Desktop\\ecar_EDA\\population\\living\\seoul_living_population.csv", encoding = "UTF-8")
+```
+
+# 신사동 처리
+```{r}
+data$dong <- ifelse(data$gu == "강남구", gsub('신사동','신사동_강',data$dong),data$dong)
+
+data$dong <- ifelse(data$gu == "관악구", gsub('신사동','신사동_관',data$dong),data$dong)
+```
+
+# 둔촌동 처리
+```{r}
+dunchon <- data[data$dong == "둔촌1동",][1:18] + data[data$dong == "둔촌2동",][1:18]
+dunchon
+
+dunchon$dongcode <- 11740700 #둔촌2동 기준
+
+dunchon$gu <- "강동구"
+dunchon$dong <- "둔촌동"
+
+data <- rbind(data,dunchon)
+
+data <- data[-c(423,424),]
+
+write_csv(data,"seoul_living_population_수정.csv")
+```
